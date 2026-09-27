@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f19" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Contas" />
+  <meta name="description" content="Controle pessoal de faturas, contas, gastos, receitas, dívidas e comprovantes." />
+  <title>Controle Financeiro Pessoal</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="style.css?v=15" />
+</head>
+<body>
+  <div id="toast" class="toast" aria-live="polite" aria-atomic="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">R$</div>
+      <div>
+        <strong>Controle de Contas</strong>
+        <span>Faturas • Gastos • Entradas • Dívidas</span>
+      </div>
+    </div>
+    <div class="top-actions">
+      <span id="syncStatus" class="sync-pill">Conectando...</span>
+      <button id="installBtn" class="btn soft hidden" type="button">Instalar app</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="comprovantes">📸 Comprovantes</button>
+      <button class="tab" data-tab="faturas">Faturas cartão</button>
+      <button class="tab" data-tab="cartoes">Cartões</button>
+      <button class="tab" data-tab="contas">Contas</button>
+      <button class="tab" data-tab="gastos">Gastos</button>
+      <button class="tab" data-tab="receitas">Receitas</button>
+      <button class="tab" data-tab="dividas">Dívidas</button>
+      <button class="tab" data-tab="projecao">Projeção</button>
+      <button class="tab" data-tab="mensal">Mês</button>
+      <button class="tab" data-tab="inteligencia">Análise</button>
+      <button class="tab" data-tab="planejamento">Planos</button>
+      <button class="tab" data-tab="config">Sistema</button>
+    </nav>
+
+    <section id="dashboard" class="panel active">
+      <div class="section-head dashboard-head">
+        <div><h1>Dashboard</h1><p>Resumo e previsão de caixa.</p></div>
+        <div class="dashboard-actions">
+          <label class="month-filter compact-month-filter">
+            <span>Mês</span>
+            <input id="dashMonthFilter" type="month">
+          </label>
+          <button class="btn primary" data-open-tab="comprovantes" type="button">Ler comprovante</button>
+        </div>
+      </div>
+      
+      <div id="dashboardCards" class="cards-grid"></div>
+      <div id="dailyBudget" class="card daily-budget"></div>
+      <div id="riskAlerts" class="risk-alerts" aria-live="polite"></div>
+      <article id="savingsGoal" class="card savings-goal" aria-live="polite"></article>
+
+      <div class="cashflow-panel">
+        <h3>Fluxo de Caixa: <span id="dashMonthLabel"></span></h3>
+        <p>Análise das entradas e saídas dividida por período.</p>
+        <div id="dashboardPeriods" class="cashflow-grid"></div>
+      </div>
+
+      <div class="grid two">
+        <article class="card"><h3>Faturas por cartão no mês</h3><div id="dashboardFaturas" class="mini-list"></div></article>
+        <article class="card accent"><h3>Sugestão</h3><div id="debtSuggestion"></div></article>
+      </div>
+    </section>
+
+    <!-- O restante das abas permanece inalterado -->
+    <section id="comprovantes" class="panel">
+      <div class="section-head"><div><h1>Comprovantes</h1><p>Tire foto ou envie imagem/PDF para o sistema tentar ler sozinho.</p></div></div>
+      <div class="grid two">
+        <article class="card">
+          <h3>Enviar arquivo</h3>
+          <input id="receiptFile" type="file" accept="image/*,application/pdf">
+          <div class="camera-box" aria-label="Área de captura do comprovante">
+            <span class="camera-focus" aria-hidden="true"></span>
+            <video id="cameraVideo" playsinline autoplay muted></video>
+            <canvas id="cameraCanvas" class="hidden"></canvas>
+          </div>
+          <div class="row-actions">
+            <button id="startCameraBtn" class="btn soft" type="button">Abrir câmera</button>
+            <button id="captureBtn" class="btn primary" type="button">Tirar foto</button>
+            <button id="stopCameraBtn" class="btn ghost" type="button">Fechar câmera</button>
+          </div>
+          <div id="receiptPreview" class="receipt-preview"></div>
+          <button id="runOcrBtn" class="btn primary full" type="button">Ler comprovante</button>
+          <small class="muted">OCR por Tesseract.js/PDF.js. Precisa de internet para carregar as bibliotecas.</small>
+        </article>
+        <article class="card">
+          <h3>Revisar antes de lançar</h3>
+          <form id="receiptForm" class="form-grid compact">
+            <label>Tipo de lançamento
+              <select name="tipoLancamento"><option value="gasto">Custo/Gasto</option><option value="receita">Lucro/Entrada</option></select>
+            </label>
+            <label>Data <input name="data" type="date"></label>
+            <label>Valor <input name="valor" type="number" step="0.01" min="0"></label>
+            <label>Estabelecimento/Origem <input name="estabelecimento" placeholder="Ex.: Mercado, cliente, banco"></label>
+            <label>CNPJ <input name="cnpj" placeholder="Opcional"></label>
+            <label>Categoria <input name="categoria" placeholder="Mercado, Pix, combustível..."></label>
+            <label>Forma de pagamento <input name="formaPagamento" placeholder="Pix, cartão, dinheiro..."></label>
+            <label class="span-2">Observação <textarea name="observacao" rows="2"></textarea></label>
+            <label class="span-2">Texto lido <textarea name="texto" rows="5"></textarea></label>
+            <button class="btn primary span-2" type="submit">Confirmar e lançar</button>
+          </form>
+        </article>
+      </div>
+      <article class="card"><h3>Histórico de comprovantes</h3><div id="comprovantesTable"></div></article>
+    </section>
+
+    <section id="faturas" class="panel">
+      <div class="section-head">
+        <div><h1>Faturas cartão</h1><p>Lance o total de cada cartão por mês. Os meses anteriores ficam preservados.</p></div>
+        <div class="filter-actions">
+          <label class="month-filter">Filtrar mês <input id="faturasMonthFilter" type="month"></label>
+          <button id="clearFaturasFilter" class="btn ghost" type="button">Mostrar todos</button>
+          <small id="faturasCount" class="muted"></small>
+        </div>
+      </div>
+      <div id="invoiceSummaryCards" class="cards-grid invoice-summary-grid"></div>
+      <div class="grid two invoice-insights">
+        <article class="card">
+          <h3>Total pendente por cartão</h3>
+          <p class="muted">Soma de todas as faturas ainda não marcadas como pagas.</p>
+          <div id="invoiceByCard"></div>
+        </article>
+        <article class="card accent">
+          <h3>Previsão para quitar</h3>
+          <div id="invoicePayoffPreview"></div>
+        </article>
+      </div>
+      <div class="grid form-table">
+        <form id="faturaForm" class="card form-card" data-entity="faturas">
+          <input type="hidden" name="id">
+          <label>Cartão <select name="cartaoId" required></select></label>
+          <label>Mês da fatura <input name="mes" type="month" required></label>
+          <label>Valor total da fatura <input name="valor" type="number" step="0.01" min="0" required></label>
+          <label>Status <select name="status"><option>pendente</option><option>paga</option><option>cancelada</option></select></label>
+          <label class="span-2">Observação <textarea name="observacao" rows="2"></textarea></label>
+          <button class="btn primary" type="submit">Salvar fatura</button>
+          <button class="btn ghost" type="reset">Limpar</button>
+        </form>
+        <article class="card table-card"><div id="faturasTable"></div></article>
+      </div>
+    </section>
+
+    <section id="cartoes" class="panel">
+      <div class="section-head"><h1>Cartões</h1></div>
+      <div class="grid form-table">
+        <form id="cartaoForm" class="card form-card" data-entity="cartoes">
+          <input type="hidden" name="id">
+          <label>Nome do cartão <input name="nome" required placeholder="Itaú, Will Bank..."></label>
+          <label>Banco <input name="banco" placeholder="Banco"></label>
+          <label>Dia fechamento <input name="fechamento" type="number" min="1" max="31"></label>
+          <label>Dia vencimento <input name="vencimento" type="number" min="1" max="31"></label>
+          <label>Limite <input name="limite" type="number" step="0.01" min="0"></label>
+          <label>Observação <input name="observacao"></label>
+          <button class="btn primary" type="submit">Salvar cartão</button>
+          <button class="btn ghost" type="reset">Limpar</button>
+        </form>
+        <article class="card table-card"><div id="cartoesTable"></div></article>
+      </div>
+    </section>
+
+    <section id="contas" class="panel">
+      <div class="section-head"><h1>Contas básicas</h1></div>
+      <div class="grid form-table">
+        <form id="contaForm" class="card form-card" data-entity="contas">
+          <input type="hidden" name="id">
+          <label>Descrição <input name="descricao" required placeholder="Aluguel, luz, internet..."></label>
+          <label>Valor <input name="valor" type="number" step="0.01" min="0" required></label>
+          <label>Vencimento <input name="data" type="date" required></label>
+          <label>Categoria <input name="categoria" placeholder="Casa, mercado..."></label>
+          <label>Tipo <select name="tipo"><option value="fixa">fixa mensal</option><option value="avulsa">avulsa</option></select></label>
+          <label>Status <select name="status"><option>pendente</option><option>paga</option><option>cancelada</option></select></label>
+          <label class="span-2">Observação <textarea name="observacao" rows="2"></textarea></label>
+          <button class="btn primary" type="submit">Salvar conta</button><button class="btn ghost" type="reset">Limpar</button>
+        </form>
+        <article class="card table-card"><div id="contasTable"></div></article>
+      </div>
+    </section>
+
+    <section id="gastos" class="panel">
+      <div class="section-head"><h1>Gastos avulsos</h1></div>
+      <div class="grid form-table">
+        <form id="gastoForm" class="card form-card" data-entity="gastos">
+          <input type="hidden" name="id">
+          <label>Data <input name="data" type="date" required></label>
+          <label>Descrição <input name="descricao" required></label>
+          <label>Valor <input name="valor" type="number" step="0.01" min="0" required></label>
+          <label>Categoria <input name="categoria"></label>
+          <label>Forma de pagamento <input name="formaPagamento" placeholder="Pix, cartão..."></label>
+          <label class="span-2">Motivo/observação <textarea name="observacao" rows="2"></textarea></label>
+          <button class="btn primary" type="submit">Salvar gasto</button><button class="btn ghost" type="reset">Limpar</button>
+        </form>
+        <article class="card table-card"><div id="gastosTable"></div></article>
+      </div>
+    </section>
+
+    <section id="receitas" class="panel">
+      <div class="section-head"><h1>Receitas / entradas</h1></div>
+      <div class="grid form-table">
+        <form id="receitaForm" class="card form-card" data-entity="receitas">
+          <input type="hidden" name="id">
+          <label>Descrição <input name="descricao" required placeholder="Salário, comissão, pix..."></label>
+          <label>Valor <input name="valor" type="number" step="0.01" min="0" required></label>
+          <label>Data prevista <input name="data" type="date" required></label>
+          <label>Tipo <select name="tipo"><option value="recorrente">recorrente mensal</option><option value="avulsa">avulsa</option></select></label>
+          <label class="span-2">Observação <textarea name="observacao" rows="2"></textarea></label>
+          <button class="btn primary" type="submit">Salvar entrada</button><button class="btn ghost" type="reset">Limpar</button>
+        </form>
+        <article class="card table-card"><div id="receitasTable"></div></article>
+      </div>
+    </section>
+
+    <section id="dividas" class="panel">
+      <div class="section-head"><h1>Dívidas</h1></div>
+      <div class="grid form-table">
+        <form id="dividaForm" class="card form-card" data-entity="dividas">
+          <input type="hidden" name="id">
+          <label>Nome da dívida <input name="nome" required></label>
+          <label>Valor total da Dívida<input name="valorTotal" type="number" step="0.01" min="0" required></label>
+          <label>Valor pago (antes de iniciar aqui)<input name="valorPago" type="number" step="0.01" min="0" value="0"></label>
+          <label>Pagamento mensal previsto <input name="pagamentoMensal" type="number" step="0.01" min="0" value="0"></label>
+          <label>Mês e Ano Inicial <input name="dataInicial" type="date" required></label>
+          <label>Previsão de quitação <input name="previsaoQuitacao" type="date"></label>
+          <label>Status <select name="status"><option>aberta</option><option>negociando</option><option>quitada</option></select></label>
+          <label class="span-2">Observação <textarea name="observacao" rows="2"></textarea></label>
+          <button class="btn primary" type="submit">Salvar dívida</button><button class="btn ghost" type="reset">Limpar</button>
+        </form>
+        <article class="card table-card"><div id="dividasTable"></div></article>
+      </div>
+    </section>
+
+    <section id="projecao" class="panel">
+      <div class="section-head"><div><h1>Projeção</h1><p>Próximos 12 meses com entradas, saídas, saldo acumulado e plano de quitação.</p></div></div>
+      <article class="card"><h3>Evolução mensal</h3><p class="muted">Entradas e saídas previstas com os lançamentos cadastrados.</p><div id="projectionChart" class="chart-host"></div></article>
+      <article class="card"><h3>Fluxo financeiro</h3><div id="projectionTable"></div></article>
+      <article class="card payoff-plan-card">
+        <div class="payoff-card-head">
+          <div>
+            <h3>Plano estimado de quitação</h3>
+            <p class="muted">Inclui todas as faturas pendentes e o saldo das dívidas cadastradas.</p>
+          </div>
+          <form id="payoffSimulatorForm" class="payoff-controls">
+            <label>Estratégia de quitação<select id="payoffStrategy" name="strategy"><option value="padrao">Modo Padrão</option><option value="neve">Bola de Neve · menor saldo</option><option value="avalanche">Avalanche · maior saldo</option></select></label>
+            <label>Começar em
+              <input id="payoffStartMonth" name="startMonth" type="month">
+            </label>
+            <label>Valor mensal para quitar
+              <input id="payoffMonthlyBudget" name="monthlyBudget" type="number" min="0" step="0.01" placeholder="Automático">
+            </label>
+            <button class="btn primary" type="submit">Simular</button>
+            <button id="resetPayoffSimulator" class="btn ghost" type="button">Usar saldo livre</button>
+          </form>
+        </div>
+        <div id="payoffModeNote" class="simulation-note"></div>
+        <div id="debtPayoffTable"></div>
+      </article>
+    </section>
+
+    <section id="mensal" class="panel">
+      <div class="section-head">
+        <div><h1>Visualização mensal</h1><p>Veja tudo de um mês específico.</p></div>
+        <div class="filter-actions"><label class="month-filter">Mês<input id="monthFilter" type="month"></label><label class="month-filter">Categoria<select id="categoryFilter" aria-label="Filtrar categoria"><option value="">Todas as categorias</option></select></label></div>
+      </div>
+      <div id="monthlySummary" class="cards-grid"></div>
+      <p id="categoryFilterNote" class="muted"></p>
+      <div class="grid two">
+        <article class="card"><h3>Faturas</h3><div id="monthFaturas"></div></article>
+        <article class="card"><h3>Contas</h3><div id="monthContas"></div></article>
+        <article class="card"><h3>Gastos</h3><div id="monthGastos"></div></article>
+        <article class="card"><h3>Receitas</h3><div id="monthReceitas"></div></article>
+      </div>
+    </section>
+
+    <section id="inteligencia" class="panel">
+      <div class="section-head"><div><h1>Análise do dinheiro</h1><p>Fechamento, vencimentos, comparações e assinaturas com base nos lançamentos existentes.</p></div></div>
+      <div class="insights-grid">
+        <article class="card"><h3>Fechamento do mês</h3><div id="monthClosing"></div></article>
+        <article class="card"><h3>Comparação com o mês anterior</h3><div id="monthComparison"></div></article>
+      </div>
+      <article class="card"><h3>Assinaturas e compromissos recorrentes</h3><p class="muted">Contas cadastradas como “fixa mensal”. Revise a lista: contas fixas essenciais também aparecem.</p><div id="subscriptions"></div></article>
+      <article class="card"><h3>Próximos vencimentos</h3><div id="upcomingDue"></div></article>
+    </section>
+
+    <section id="planejamento" class="panel">
+      <div class="section-head"><div><h1>Planos e simulações</h1><p>Experimente decisões sem criar lançamentos na planilha.</p></div></div>
+      <p class="local-note">Saldo disponível, reserva e compras planejadas são guardados neste aparelho e incluídos no backup JSON. Não sincronizam entre aparelhos.</p>
+      <div class="insights-grid">
+        <article class="card">
+          <h3>Quanto posso gastar hoje?</h3>
+          <form id="cashTodayForm" class="insight-form">
+            <label>Saldo disponível agora (R$)<input name="cash" type="number" min="0" step="0.01" required placeholder="Consulte o saldo no banco"></label>
+            <button class="btn primary" type="submit">Atualizar saldo</button>
+          </form>
+          <div id="dailyBudgetDetail"></div>
+        </article>
+        <article class="card">
+          <h3>Cenário “e se?”</h3>
+          <form id="scenarioForm" class="insight-form">
+            <label>Tipo<select name="kind"><option value="expense">Nova compra / gasto</option><option value="save">Redução de gasto</option><option value="income">Renda extra</option></select></label>
+            <label>Valor por mês (R$)<input name="amount" type="number" min="0.01" step="0.01" required></label>
+            <label>Duração (meses)<input name="duration" type="number" min="1" max="12" value="1" required></label>
+            <button class="btn primary" type="submit">Simular sem salvar</button>
+          </form>
+          <div id="scenarioResult" aria-live="polite"></div>
+        </article>
+      </div>
+      <div class="insights-grid">
+        <article class="card">
+          <h3>Reserva de emergência</h3>
+          <form id="reserveForm" class="insight-form">
+            <label>Valor já reservado (R$)<input name="saved" type="number" min="0" step="0.01" required></label>
+            <label>Meta em meses de despesas básicas<input name="months" type="number" min="1" max="36" step="1" value="6" required></label>
+            <button class="btn primary" type="submit">Salvar meta local</button>
+          </form>
+          <div id="reserveProgress"></div>
+        </article>
+        <article class="card">
+          <h3>Compras planejadas</h3>
+          <form id="purchaseForm" class="insight-form">
+            <label>Compra<input name="name" maxlength="80" required placeholder="Ex.: celular"></label>
+            <label>Preço (R$)<input name="price" type="number" min="0.01" step="0.01" required></label>
+            <label>Quanto já guardei (R$)<input name="saved" type="number" min="0" step="0.01" value="0" required></label>
+            <label>Mês desejado<input name="month" type="month" required></label>
+            <button class="btn primary" type="submit">Adicionar plano local</button>
+          </form>
+          <div id="purchases"></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="config" class="panel">
+      <div class="section-head"><div><h1>Sistema e segurança</h1><p>Sincronização individual, backup e recuperação dos dados.</p></div></div>
+      <div class="grid two">
+        <form id="configForm" class="card form-card single">
+          <h3>Google Sheets</h3>
+          <label>URL do App da Web /exec
+            <input name="apiUrl" value="https://script.google.com/macros/s/AKfycbzb1XlFawL49EtVr0tUVzp2LFmUWAb9kzCcycNHs2ZdPLcEwHjH1GUmnVkQcmypZ40VkQ/exec" readonly>
+          </label>
+          <label>Código da implantação
+            <input name="deploymentId" value="AKfycbzb1XlFawL49EtVr0tUVzp2LFmUWAb9kzCcycNHs2ZdPLcEwHjH1GUmnVkQcmypZ40VkQ" readonly>
+          </label>
+          <label>Biblioteca do Apps Script
+            <input name="libraryUrl" value="https://script.google.com/macros/library/d/1dQeyxkJpfweeRvqKwl1StjLr5xb4hDKlIYbCVk259AXhMGQfvypZtM3W/2" readonly>
+          </label>
+          <small class="muted">O site sincroniza pela URL do App da Web. A URL da biblioteca fica registrada apenas como referência do projeto no Apps Script.</small>
+          <button class="btn primary" type="submit">Confirmar backend</button>
+          <button id="testApiBtn" class="btn soft" type="button">Testar conexão</button>
+          <button id="syncNowBtn" class="btn ghost" type="button">Sincronizar tudo</button>
+          <button id="reloadCloudBtn" class="btn ghost" type="button">Atualizar da nuvem</button>
+        </form>
+        <article class="card system-card">
+          <h3>Proteção dos dados</h3>
+          <div class="system-stats">
+            <div><span>Versão</span><strong id="appVersion">-</strong></div>
+            <div><span>Registros</span><strong id="databaseCount">0</strong></div>
+            <div><span>Pendentes</span><strong id="pendingCount">0</strong></div>
+          </div>
+          <p class="muted">Novos registros são enviados individualmente. Uma falha de conexão não apaga faturas antigas.</p>
+          <button id="exportBackupBtn" class="btn primary full" type="button">Exportar backup JSON</button>
+          <label class="file-button btn soft full">Importar backup JSON
+            <input id="importBackupFile" type="file" accept="application/json,.json" hidden>
+          </label>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="script.js?v=15"></script>
+  <script src="insights.js?v=15"></script>
+</body>
+</html>
